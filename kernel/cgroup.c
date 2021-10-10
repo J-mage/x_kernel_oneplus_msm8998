@@ -233,6 +233,7 @@ struct cgroup_namespace init_cgroup_ns = {
 /* Ditto for the can_fork callback. */
 static u16 have_canfork_callback __read_mostly;
 
+static struct file_system_type cgroup2_fs_type;
 static struct cftype cgroup_dfl_base_files[];
 static struct cftype cgroup_legacy_base_files[];
 
@@ -2079,6 +2080,7 @@ static struct dentry *cgroup_mount(struct file_system_type *fs_type,
 			 int flags, const char *unused_dev_name,
 			 void *data)
 {
+	bool is_v2 = fs_type == &cgroup2_fs_type;
 	struct super_block *pinned_sb = NULL;
 	struct cgroup_namespace *ns = current->nsproxy->cgroup_ns;
 	struct cgroup_subsys *ss;
@@ -2103,7 +2105,7 @@ static struct dentry *cgroup_mount(struct file_system_type *fs_type,
 	 */
 	if (!use_task_css_set_links)
 		cgroup_enable_task_cg_lists();
-/*
+
 	if (is_v2) {
 		if (data) {
 			pr_err("cgroup2: unknown option \"%s\"\n", (char *)data);
@@ -2115,7 +2117,6 @@ static struct dentry *cgroup_mount(struct file_system_type *fs_type,
 		cgroup_get(&root->cgrp);
 		goto out_mount;
 	}
-*/
 
 	cgroup_lock_and_drain_offline(&cgrp_dfl_root.cgrp);
 
@@ -2126,7 +2127,7 @@ static struct dentry *cgroup_mount(struct file_system_type *fs_type,
 
 	/* look for a matching existing root */
 	if (opts.flags & CGRP_ROOT_SANE_BEHAVIOR) {
-		cgrp_dfl_root_visible = true;
+		cgrp_dfl_visible = true;
 		root = &cgrp_dfl_root;
 		cgroup_get(&root->cgrp);
 		ret = 0;
@@ -2253,7 +2254,8 @@ out_free:
 	}
 out_mount:
 	dentry = kernfs_mount(fs_type, flags, root->kf_root,
-				CGROUP_SUPER_MAGIC, &new_sb);
+			      is_v2 ? CGROUP2_SUPER_MAGIC : CGROUP_SUPER_MAGIC,
+			      &new_sb);
 
 	/*
 	 * In non-init cgroup namespace, instead of root cgroup's
@@ -2321,14 +2323,12 @@ static struct file_system_type cgroup_fs_type = {
 	.fs_flags = FS_USERNS_MOUNT,
 };
 
-/*
 static struct file_system_type cgroup2_fs_type = {
 	.name = "cgroup2",
 	.mount = cgroup_mount,
 	.kill_sb = cgroup_kill_sb,
 	.fs_flags = FS_USERNS_MOUNT,
 };
-*/
 
 static int cgroup_path_ns_locked(struct cgroup *cgrp, char *buf, size_t buflen,
 				 struct cgroup_namespace *ns)
@@ -5831,6 +5831,7 @@ int __init cgroup_init(void)
 
 	WARN_ON(sysfs_create_mount_point(fs_kobj, "cgroup"));
 	WARN_ON(register_filesystem(&cgroup_fs_type));
+	WARN_ON(register_filesystem(&cgroup2_fs_type));
 	WARN_ON(!proc_create("cgroups", 0, NULL, &proc_cgroupstats_operations));
 
 	return 0;
