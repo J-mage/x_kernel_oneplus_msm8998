@@ -576,9 +576,6 @@ struct mdss_dsi_ctrl_pdata {
 	struct mdss_dsi_debugfs_info *debugfs_info;
 	struct dsi_err_container err_cont;
 
-	struct delayed_work techeck_work;
-	struct completion te_comp;
-
 	int disp_vci_en_gpio;
 	int disp_poc_en_gpio;
 
@@ -656,6 +653,7 @@ struct dsi_status_data {
 	struct notifier_block fb_notifier;
 	struct delayed_work check_status;
 	struct msm_fb_data_type *mfd;
+	struct work_struct irq_done;
 };
 
 int mdss_dsi_panel_set_srgb_mode(struct mdss_dsi_ctrl_pdata *ctrl, int level);
